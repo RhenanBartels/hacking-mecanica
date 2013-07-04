@@ -4,6 +4,11 @@
 from numpy import fromfile
 import sys
 
+"""
+    Open a binary file written by DAS (LabView) and save it to a text file.
+    
+"""    
+
 
 fid = open(sys.argv[1], 'rb')
 dim = fromfile(fid, dtype='>u4', count=2)

@@ -5,6 +5,8 @@
 
 import numpy as np
 import sys
+import Tkinter
+import scipy.signal
 
 
 def impdaspy(filename, savef=False):
@@ -87,58 +89,79 @@ def impdaspy(filename, savef=False):
     return all_sig, config
 
 def rrdet(ecg, fs):
-    ### Butterworth stuff
-    #Create de MultLine Dialog box
-    import Tkinter
+    base = Base()
+    thr = base.thr
+    fs = base.fs
+    lc = base.lc
+    uc = base.uc
 
-    #http://www.prasannatech.net/2009/05/tkinter-entry-widget-single-line-text.html
-    class Base:
-        def getval(self):
-            global vals
-
-
-
-        def __init__(self):
-
-            master = Tkinter.Tk()
-            master.title("RRi Detection Parameters")
-            master.geometry("250x200")
-
-            frame1 = Tkinter.Frame(master)
-            frame2 = Tkinter.Frame(master)
-            frame3 = Tkinter.Frame(master)
-            frame4 = Tkinter.Frame(master)
-
-            label1 = Tkinter.Label(frame1, text="Threshold")
-            label2 = Tkinter.Label(frame2, text="Sampling Frequency")
-            label3 = Tkinter.Label(frame3, text="Lower Cut-off Frequency")
-            label4 = Tkinter.Label(frame4, text="Upper Cut-off Frequency")
-
-            label1.pack()
-            label2.pack()
-            label3.pack()
-            label4.pack()
-
-            entry1 = Tkinter.Entry(frame1)
-            entry2 = Tkinter.Entry(frame2)
-            entry3 = Tkinter.Entry(frame3)
-            entry4 = Tkinter.Entry(frame4)a
-
-            entry1.pack()
-            entry2.pack()
-            entry3.pack()
-            entry4.pack()
-
-            frame1.pack()
-            frame2.pack()
-            frame3.pack()
-            frame4.pack()
-
-            bt = Tkinter.Button(master, text="OK", command=get_val)
-
-            master.mainloop()
-
+    B, A = scipy.signal.butter(4, [2 * lc / fs, 2 * uc / fs], btype="pass")
+    ecgf = scipy.signal.filtfilt(B, A, ecg)
 
     ecgd = np.diff(ecgf)
     peaks = [itr + 1 for itr in xrange(len(ecgf)) if  ecg[itr] >= thr
              and (ecgd[itr] > 0 and ecgd[itr + 1] < 0 or ecgd[itr] ==0)]
+
+    rri = np.diff(peaks)
+    t = np.cumsum(rri) / 1000.0
+
+    return t, rri
+
+class Base:
+    def getval(self):
+        self.thr = float(self.entry1.get().strip())
+        self.fs = float(self.entry2.get().strip())
+        self.lc = float(self.entry3.get().strip())
+        self.uc = float(self.entry4.get().strip())
+        self.master.destroy()
+        #return [thr, fs, lc, uc]
+
+
+    def kill_Tk(self):
+        self.master.destroy()
+
+
+    def __init__(self):
+
+        self.master = Tkinter.Tk()
+        self.master.title("RRi Detection Parameters")
+        self.master.geometry("250x200")
+
+        frame1 = Tkinter.Frame(self.master)
+        frame2 = Tkinter.Frame(self.master)
+        frame3 = Tkinter.Frame(self.master)
+        frame4 = Tkinter.Frame(self.master)
+
+        label1 = Tkinter.Label(frame1, text="Threshold")
+        label2 = Tkinter.Label(frame2, text="Sampling Frequency")
+        label3 = Tkinter.Label(frame3, text="Lower Cut-off Frequency")
+        label4 = Tkinter.Label(frame4, text="Upper Cut-off Frequency")
+
+        label1.pack()
+        label2.pack()
+        label3.pack()
+        label4.pack()
+
+        self.entry1 = Tkinter.Entry(frame1)
+        self.entry2 = Tkinter.Entry(frame2)
+        self.entry3 = Tkinter.Entry(frame3)
+        self.entry4 = Tkinter.Entry(frame4)
+
+        self.entry1.pack()
+        self.entry2.pack()
+        self.entry3.pack()
+        self.entry4.pack()
+
+        frame1.pack()
+        frame2.pack()
+        frame3.pack()
+        frame4.pack()
+
+        btok = Tkinter.Button(self.master, text="OK", command=self.getval)
+        btcan = Tkinter.Button(self.master, text="Cancel", command=self.kill_Tk)
+        btok.pack()
+        btcan.pack()
+        #btok.pack(side="left", padx=50, pady=4)
+        #btcan.pack(side="left")
+
+        self.master.mainloop()

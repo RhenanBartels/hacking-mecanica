@@ -1,6 +1,6 @@
 """
     Module to convert the codes from Mecanica software, written in Matlab
-    to the free world of Python
+    to the free world of Python.
 """
 
 import numpy as np

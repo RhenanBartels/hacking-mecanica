@@ -1,6 +1,6 @@
 """
     Module to convert the codes from Mecanica software, written in Matlab
-    to the free world of Python
+    to the free world of Python.
 """
 
 import numpy as np
@@ -88,12 +88,15 @@ def impdaspy(filename, savef=False):
 
     return all_sig, config
 
-def rrdet(ecg, fs):
+def rrdet(ecg):
     base = Base()
-    thr = base.thr
-    fs = base.fs
-    lc = base.lc
-    uc = base.uc
+    try:
+        thr = base.thr
+        fs = base.fs
+        lc = base.lc
+        uc = base.uc
+    except AttributeError:
+        return None, None
 
     B, A = scipy.signal.butter(4, [2 * lc / fs, 2 * uc / fs], btype="pass")
     ecgf = scipy.signal.filtfilt(B, A, ecg)
@@ -125,7 +128,7 @@ class Base:
 
         self.master = Tkinter.Tk()
         self.master.title("RRi Detection Parameters")
-        self.master.geometry("250x200")
+        self.master.geometry("250x250")
 
         frame1 = Tkinter.Frame(self.master)
         frame2 = Tkinter.Frame(self.master)
@@ -165,3 +168,4 @@ class Base:
         #btcan.pack(side="left")
 
         self.master.mainloop()
+#TODO: Include Everything in once big class

@@ -7,9 +7,11 @@ import numpy as np
 import sys
 import Tkinter
 import scipy.signal
+import matplotlib.pyplot as plt
+plt.switch_backend('qt4Agg')
+plt.ion()
 
-
-def impdaspy(filename, savef=False):
+def impdaspy(filename):
 
     """
         Open a binary file written by Data Acquisition System (DAS).
@@ -88,25 +90,30 @@ def impdaspy(filename, savef=False):
 
     return all_sig, config
 
-def rrdet(ecg):
+def detrri(ecg):
     base = Base()
-    try:
-        thr = base.thr
-        fs = base.fs
-        lc = base.lc
-        uc = base.uc
-    except AttributeError:
-        return None, None
+    base.rrdet(ecg)
+    base.plotter()
+    t = base.t
+    rri = base.rri
+    #base = Base()
+    #try:
+        #thr = base.thr
+        #fs = base.fs
+        #lc = base.lc
+        #uc = base.uc
+    #except AttributeError:
+        #return None, None
 
-    B, A = scipy.signal.butter(4, [2 * lc / fs, 2 * uc / fs], btype="pass")
-    ecgf = scipy.signal.filtfilt(B, A, ecg)
+    #B, A = scipy.signal.butter(4, [2 * lc / fs, 2 * uc / fs], btype="pass")
+    #ecgf = scipy.signal.filtfilt(B, A, ecg)
 
-    ecgd = np.diff(ecgf)
-    peaks = [itr + 1 for itr in xrange(len(ecgf)) if  ecg[itr] >= thr
-             and (ecgd[itr] > 0 and ecgd[itr + 1] < 0 or ecgd[itr] ==0)]
+    #ecgd = np.diff(ecgf)
+    #peaks = [itr + 1 for itr in xrange(len(ecgf)) if  ecg[itr] >= thr
+             #and (ecgd[itr] > 0 and ecgd[itr + 1] < 0 or ecgd[itr] ==0)]
 
-    rri = np.diff(peaks)
-    t = np.cumsum(rri) / 1000.0
+    #rri = np.diff(peaks)
+    #t = np.cumsum(rri) / 1000.0
 
     return t, rri
 
@@ -123,9 +130,50 @@ class Base:
     def kill_Tk(self):
         self.master.destroy()
 
+    def rrdet(self, ecg):
+        B, A = scipy.signal.butter(4,
+                                   [2 * self.lc / self.fs,
+                                    2 * self.uc / self.fs], btype="pass")
+        ecgf = scipy.signal.filtfilt(B, A, ecg)
+        ecgd = np.diff(ecgf)
+        peaks = [itr + 1 for itr in xrange(len(ecgf)) if  ecg[itr] >= self.thr
+                 and (ecgd[itr] > 0 and ecgd[itr + 1] < 0 or ecgd[itr] ==0)]
+        self.ecgf = ecgf
+        self.t_ecg = np.arange(0, len(ecg)) / 1000.0
+        self.peaks = peaks
+        self.rri = np.diff(peaks)
+        self.t = np.cumsum(self.rri) / 1000.0
+        self.t = self.t - np.min(self.t)
+
+    def plotter(self):
+        self.fig = plt.figure()
+        self.fig1 = plt.figure()
+        self.ax1 = self.fig.add_subplot(2, 1, 1)
+        self.ax2 = self.fig.add_subplot(2, 1, 2)
+        self.ax1.plot(self.t_ecg, self.ecgf)
+        self.ax1.plot(self.t_ecg[self.peaks], self.ecgf[self.peaks], 'g.-')
+        self.ax1.set_ylabel("ECG (mV)")
+        self.ax2.plot(self.t, self.rri, 'k.-')
+        self.ax2.set_ylabel("RRi (ms)")
+        self.ax2.set_xlabel("Time (s)")
+        #self.fig.show()
+        self.fig.canvas.mpl_connect("button_press_event", self.onclick)
+        while not self.fig.waitforbuttonpress():
+            continue
+        plt.close(self.fig)
+
+    def onclick(self, event):
+        self.xpos = np.argmin(abs(event.xdata - self.t))
+        print self.xpos, event.xdata, len(self.rri)
+        self.t = np.delete(self.t, self.xpos)
+        self.rri = np.delete(self.rri, self.xpos)
+        plt.plot(self.t, self.rri, 'g.-')
+        self.ax2.cla()
+        plt.plot(self.t, self.rri, 'k.-')
+        #self.ax2.plot(self.t, self.rri, 'g.-')
+
 
     def __init__(self):
-
         self.master = Tkinter.Tk()
         self.master.title("RRi Detection Parameters")
         self.master.geometry("250x250")
@@ -149,6 +197,11 @@ class Base:
         self.entry2 = Tkinter.Entry(frame2)
         self.entry3 = Tkinter.Entry(frame3)
         self.entry4 = Tkinter.Entry(frame4)
+
+        self.entry1.insert(0, "0.35")
+        self.entry2.insert(0, "1000")
+        self.entry3.insert(0, "5")
+        self.entry4.insert(0, "40")
 
         self.entry1.pack()
         self.entry2.pack()

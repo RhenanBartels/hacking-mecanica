@@ -8,6 +8,7 @@ import sys
 import Tkinter
 import scipy.signal
 import matplotlib.pyplot as plt
+import matplotlib.Line2D as mpl2D
 plt.switch_backend('qt4Agg')
 plt.ion()
 
@@ -154,6 +155,7 @@ class Base:
         self.ax2.cla()
         plt.plot(self.t, self.rri, 'k.-')
         #self.ax2.plot(self.t, self.rri, 'g.-')
+        #mpl2D.line(posx, posy, 'r.-')
 
 
     def __init__(self):

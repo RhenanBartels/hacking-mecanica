@@ -96,25 +96,6 @@ def detrri(ecg):
     base.plotter()
     t = base.t
     rri = base.rri
-    #base = Base()
-    #try:
-        #thr = base.thr
-        #fs = base.fs
-        #lc = base.lc
-        #uc = base.uc
-    #except AttributeError:
-        #return None, None
-
-    #B, A = scipy.signal.butter(4, [2 * lc / fs, 2 * uc / fs], btype="pass")
-    #ecgf = scipy.signal.filtfilt(B, A, ecg)
-
-    #ecgd = np.diff(ecgf)
-    #peaks = [itr + 1 for itr in xrange(len(ecgf)) if  ecg[itr] >= thr
-             #and (ecgd[itr] > 0 and ecgd[itr + 1] < 0 or ecgd[itr] ==0)]
-
-    #rri = np.diff(peaks)
-    #t = np.cumsum(rri) / 1000.0
-
     return t, rri
 
 class Base:
@@ -147,11 +128,10 @@ class Base:
 
     def plotter(self):
         self.fig = plt.figure()
-        self.fig1 = plt.figure()
         self.ax1 = self.fig.add_subplot(2, 1, 1)
         self.ax2 = self.fig.add_subplot(2, 1, 2)
         self.ax1.plot(self.t_ecg, self.ecgf)
-        self.ax1.plot(self.t_ecg[self.peaks], self.ecgf[self.peaks], 'g.-')
+        self.ax1.plot(self.t_ecg[self.peaks], self.ecgf[self.peaks], 'g.')
         self.ax1.set_ylabel("ECG (mV)")
         self.ax2.plot(self.t, self.rri, 'k.-')
         self.ax2.set_ylabel("RRi (ms)")
@@ -164,9 +144,12 @@ class Base:
 
     def onclick(self, event):
         self.xpos = np.argmin(abs(event.xdata - self.t))
-        print self.xpos, event.xdata, len(self.rri)
+        self.repo = np.argmin(abs(event.xdata - self.t_ecg))
+        print self.xpos, event.xdata, self.repo
         self.t = np.delete(self.t, self.xpos)
         self.rri = np.delete(self.rri, self.xpos)
+        self.ax1.plot(self.t_ecg[self.peaks[self.xpos]],
+                      self.ecgf[self.peaks[self.xpos]], 'r.-')
         plt.plot(self.t, self.rri, 'g.-')
         self.ax2.cla()
         plt.plot(self.t, self.rri, 'k.-')

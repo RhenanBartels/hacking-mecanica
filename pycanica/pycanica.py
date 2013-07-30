@@ -108,8 +108,8 @@ def detrri(ecg):
     base.plotter()
     t = base.t
     rri = base.rri
-    x = base.x
-    return t, rri, x
+    peaks = base.peaks
+    return t, rri, peaks
 
 class Base:
     def getval(self):
@@ -133,56 +133,63 @@ class Base:
         peaks = [itr + 1 for itr in xrange(len(ecgf)) if  ecg[itr] >= self.thr
                  and (ecgd[itr] > 0 and ecgd[itr + 1] < 0 or ecgd[itr] ==0)]
         self.ecgf = ecgf
-        self.t_ecg = np.arange(0, len(ecg)) / 1000.0
+        self.t_ecg = np.arange(0, len(ecg)) / self.fs
         self.peaks = peaks
         self.rri = np.diff(peaks) / self.fs
         self.t = np.cumsum(self.rri)
+        self.peaks_ecg = peaks # Maintain list to append later.
         #self.t = self.t - np.min(self.t)
 
     def plotter(self):
+        #Draw the main figure
         self.fig = plt.figure()
         self.ax1 = self.fig.add_subplot(2, 1, 1)
         self.ax2 = self.fig.add_subplot(2, 1, 2)
         self.ax1.plot(self.t_ecg, self.ecgf)
+        #Plot the peaks upon each qrs complex
         self.ax1.plot(self.t_ecg[self.peaks], self.ecgf[self.peaks], 'g.-')
         self.ax1.set_ylabel("ECG (mV)")
         self.ax2.plot(self.t, self.rri, 'k.-')
         self.ax2.set_ylabel("RRi (ms)")
         self.ax2.set_xlabel("Time (s)")
         self.peaks = np.array(self.peaks) / self.fs
-        #self.fig.show()
+        #Event handling
         self.fig.canvas.mpl_connect("button_press_event", self.onclick)
         while not self.fig.waitforbuttonpress():
             continue
         plt.close(self.fig)
 
     def onclick(self, event):
+        #Find the neares point clicked
         self.xpos = np.argmin(abs(event.xdata - self.peaks))
-        self.x = event.inaxes
-        print self.xpos, self.t[self.xpos]
+        self.ecg_pos = np.argmin(abs(event.xdata - self.t_ecg))
+        #If left button clicked
         if event.button == 1 and self.xpos not in self.repo:
-            self.peaks = np.delete(self.peaks, self.xpos)
-            self.rri = np.diff(self.peaks)
+            self.repo.append(self.xpos)  #Control de peaks already clicked
+            #Create the rri series withou the peaks manually excluded
+            self.rri = np.diff(np.delete(self.peaks, self.repo))
+            self.t = np.cumsum(self.rri) / self.fs
+            self.t = self.t - min(self.t)
+            self.ax2.cla()
+            plt.plot(self.t, self.rri, 'k.-')
+            self.ax2.set_xlabel('Time (s)')
+            self.ax2.set_ylabel('RRi (ms)')
+        elif event.button == 3 and self.ecg_pos not in self.ecg_repo:
+            self.ecg_repo.append(self.ecg_pos)
+            self.peaks_ecg = list(np.delete(self.peaks, self.repo) * self.fs)
+            self.peaks_ecg.append(self.ecg_pos)
+            self.peaks_ecg.sort()
+            self.rri = np.diff(self.peaks_ecg) / self.fs
             self.t = np.cumsum(self.rri)
             self.t = self.t - min(self.t)
-            self.repo.append(self.xpos)
-            self.findpoint()
-            self.line1 = ml.Line2D([self.peaknow1x,
-                                    self.peaknowx,
-                                    self.peaknow2x],
-                                   [self.peaknow1y, self.peaknowy, self.peaknow2y])
-            self.line2 = ml.Line2D([self.peaknow1x,
-                                    self.peaknowx,
-                                    self.peaknow2x],
-                                   [self.peaknow1y, self.peaknowyw, self.peaknow2y])
-            self.ax1.plot(self.t_ecg, self.ecgf, 'b-')
-            self.ax1.plot(self.line1.get_xdata(), self.line1.get_ydata(), 'r.-')
-            self.ax1.plot(self.line2.get_xdata(), self.line2.get_ydata(), 'w', linewidth=2)
             self.ax2.cla()
-            self.ax2.plot(self.t, self.rri, 'k.-')
             plt.plot(self.t, self.rri, 'k.-')
-        #self.ax2.plot(self.t, self.rri, 'g.-')
-        #mpl2D.line(posx, posy, 'r.-')
+
+
+
+
+
+
 
     def findpoint(self):
         self.peaknowx = self.t_ecg[self.peaks[self.xpos]]
@@ -242,6 +249,7 @@ class Base:
         btok.pack()
         btcan.pack()
         self.repo = []
+        self.ecg_repo = []
         #btok.pack(side="left", padx=50, pady=4)
         #btcan.pack(side="left")
 

@@ -8,7 +8,7 @@ import sys
 import Tkinter
 import scipy.signal
 import matplotlib.pyplot as plt
-import matplotlib.Line2D as mpl2D
+import matplotlib.lines as ml
 plt.switch_backend('qt4Agg')
 plt.ion()
 
@@ -91,13 +91,25 @@ def impdaspy(filename):
 
     return all_sig, config
 
+def p2rri(xis, fs, thr=1):
+    xis[xis >= thr] = 1
+    xis[xis < thr] = 0
+    ct1 = xis[0:-1]
+    ct2 = xis[1::]
+    ctrl = ct2 - ct1
+    pos = np.where(ctrl == 1)[0] + 1
+    rri = np.diff(pos) / float(fs)
+    t = np.cumsum(rri)
+    return t, rri
+
 def detrri(ecg):
     base = Base()
     base.rrdet(ecg)
     base.plotter()
     t = base.t
     rri = base.rri
-    return t, rri
+    peaks = base.peaks
+    return t, rri, peaks
 
 class Base:
     def getval(self):
@@ -123,20 +135,21 @@ class Base:
         self.ecgf = ecgf
         self.t_ecg = np.arange(0, len(ecg)) / 1000.0
         self.peaks = peaks
-        self.rri = np.diff(peaks)
-        self.t = np.cumsum(self.rri) / 1000.0
-        self.t = self.t - np.min(self.t)
+        self.rri = np.diff(peaks) / self.fs
+        self.t = np.cumsum(self.rri)
+        #self.t = self.t - np.min(self.t)
 
     def plotter(self):
         self.fig = plt.figure()
         self.ax1 = self.fig.add_subplot(2, 1, 1)
         self.ax2 = self.fig.add_subplot(2, 1, 2)
         self.ax1.plot(self.t_ecg, self.ecgf)
-        self.ax1.plot(self.t_ecg[self.peaks], self.ecgf[self.peaks], 'g.')
+        self.ax1.plot(self.t_ecg[self.peaks], self.ecgf[self.peaks], 'g.-')
         self.ax1.set_ylabel("ECG (mV)")
         self.ax2.plot(self.t, self.rri, 'k.-')
         self.ax2.set_ylabel("RRi (ms)")
         self.ax2.set_xlabel("Time (s)")
+        self.peaks = np.array(self.peaks) / self.fs
         #self.fig.show()
         self.fig.canvas.mpl_connect("button_press_event", self.onclick)
         while not self.fig.waitforbuttonpress():
@@ -144,18 +157,42 @@ class Base:
         plt.close(self.fig)
 
     def onclick(self, event):
-        self.xpos = np.argmin(abs(event.xdata - self.t))
-        self.repo = np.argmin(abs(event.xdata - self.t_ecg))
-        print self.xpos, event.xdata, self.repo
-        self.t = np.delete(self.t, self.xpos)
-        self.rri = np.delete(self.rri, self.xpos)
-        self.ax1.plot(self.t_ecg[self.peaks[self.xpos]],
-                      self.ecgf[self.peaks[self.xpos]], 'r.-')
-        plt.plot(self.t, self.rri, 'g.-')
-        self.ax2.cla()
-        plt.plot(self.t, self.rri, 'k.-')
+        self.xpos = np.argmin(abs(event.xdata - self.peaks))
+        print self.xpos, self.t[self.xpos]
+        if event.button == 1 and self.xpos not in self.repo:
+            self.rri = np.delete(self.rri, self.xpos) #delete peaks not rri
+            self.t = np.delete(self.t, self.xpos)  #calculate rri and time
+                                                   #from new peaks
+            self.repo.append(self.xpos)
+            self.findpoint()
+            self.line1 = ml.Line2D([self.peaknow1x,
+                                    self.peaknowx,
+                                    self.peaknow2x],
+                                   [self.peaknow1y, self.peaknowy, self.peaknow2y])
+            self.line2 = ml.Line2D([self.peaknow1x,
+                                    self.peaknowx,
+                                    self.peaknow2x],
+                                   [self.peaknow1y, self.peaknowyw, self.peaknow2y])
+            self.ax1.plot(self.t_ecg, self.ecgf, 'b-')
+            self.ax1.plot(self.line1.get_xdata(), self.line1.get_ydata(), 'r.-')
+            self.ax1.plot(self.line2.get_xdata(), self.line2.get_ydata(), 'w', linewidth=2)
+            self.ax2.cla()
+            self.ax2.plot(self.t, self.rri, 'k.-')
+            plt.plot(self.t, self.rri, 'k.-')
         #self.ax2.plot(self.t, self.rri, 'g.-')
         #mpl2D.line(posx, posy, 'r.-')
+
+    def findpoint(self):
+        self.peaknowx = self.t_ecg[self.peaks[self.xpos]]
+        self.peaknowy = self.ecgf[self.peaks[self.xpos]] - 0.1
+        self.peaknowyw = self.ecgf[self.peaks[self.xpos]]
+        self.peaknow1x = self.t_ecg[self.peaks[self.xpos - 1]]
+        self.peaknow1y = self.ecgf[self.peaks[self.xpos - 1]]
+        self.peaknow2x = self.t_ecg[self.peaks[self.xpos + 1]]
+        self.peaknow2y = self.ecgf[self.peaks[self.xpos + 1]]
+
+
+
 
 
     def __init__(self):
@@ -202,6 +239,7 @@ class Base:
         btcan = Tkinter.Button(self.master, text="Cancel", command=self.kill_Tk)
         btok.pack()
         btcan.pack()
+        self.repo = []
         #btok.pack(side="left", padx=50, pady=4)
         #btcan.pack(side="left")
 

@@ -108,8 +108,8 @@ def detrri(ecg):
     base.plotter()
     t = base.t
     rri = base.rri
-    peaks = base.peaks
-    return t, rri, peaks
+    x = base.x
+    return t, rri, x
 
 class Base:
     def getval(self):
@@ -158,11 +158,13 @@ class Base:
 
     def onclick(self, event):
         self.xpos = np.argmin(abs(event.xdata - self.peaks))
+        self.x = event.inaxes
         print self.xpos, self.t[self.xpos]
         if event.button == 1 and self.xpos not in self.repo:
-            self.rri = np.delete(self.rri, self.xpos) #delete peaks not rri
-            self.t = np.delete(self.t, self.xpos)  #calculate rri and time
-                                                   #from new peaks
+            self.peaks = np.delete(self.peaks, self.xpos)
+            self.rri = np.diff(self.peaks)
+            self.t = np.cumsum(self.rri)
+            self.t = self.t - min(self.t)
             self.repo.append(self.xpos)
             self.findpoint()
             self.line1 = ml.Line2D([self.peaknow1x,

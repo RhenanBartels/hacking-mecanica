@@ -130,7 +130,7 @@ class Base:
                                     2 * self.uc / self.fs], btype="pass")
         ecgf = scipy.signal.filtfilt(B, A, ecg)
         ecgd = np.diff(ecgf)
-        peaks = [itr + 1 for itr in xrange(len(ecgf)) if  ecg[itr] >= self.thr
+        peaks = [itr + 1 for itr in xrange(len(ecgf)) if  ecgf[itr] >= self.thr
                  and (ecgd[itr] > 0 and ecgd[itr + 1] < 0 or ecgd[itr] ==0)]
         self.ecgf = ecgf
         self.t_ecg = np.arange(0, len(ecg)) / self.fs
@@ -164,7 +164,7 @@ class Base:
         self.xpos = np.argmin(abs(event.xdata - self.peaks))
         self.ecg_pos = np.argmin(abs(event.xdata - self.t_ecg))
         #If left button clicked
-        if event.button == 1 and self.xpos not in self.repo:
+        if event.button == 1:
             self.repo.append(self.xpos)  #Control de peaks already clicked
             #Create the rri series withou the peaks manually excluded
             self.rri = np.diff(np.delete(self.peaks, self.repo))
@@ -174,8 +174,9 @@ class Base:
             plt.plot(self.t, self.rri, 'k.-')
             self.ax2.set_xlabel('Time (s)')
             self.ax2.set_ylabel('RRi (ms)')
-        elif event.button == 3 and self.ecg_pos not in self.ecg_repo:
+        elif event.button == 3:
             self.ecg_repo.append(self.ecg_pos)
+            #Refresh array of peaks to add a new one.
             self.peaks_ecg = list(np.delete(self.peaks, self.repo) * self.fs)
             self.peaks_ecg.append(self.ecg_pos)
             self.peaks_ecg.sort()
@@ -185,24 +186,8 @@ class Base:
             self.ax2.cla()
             plt.plot(self.t, self.rri, 'k.-')
 
-
-
-
-
-
-
-    def findpoint(self):
-        self.peaknowx = self.t_ecg[self.peaks[self.xpos]]
-        self.peaknowy = self.ecgf[self.peaks[self.xpos]] - 0.1
-        self.peaknowyw = self.ecgf[self.peaks[self.xpos]]
-        self.peaknow1x = self.t_ecg[self.peaks[self.xpos - 1]]
-        self.peaknow1y = self.ecgf[self.peaks[self.xpos - 1]]
-        self.peaknow2x = self.t_ecg[self.peaks[self.xpos + 1]]
-        self.peaknow2y = self.ecgf[self.peaks[self.xpos + 1]]
-
-
-
-
+    def drawline(self):
+        pass
 
     def __init__(self):
         self.master = Tkinter.Tk()

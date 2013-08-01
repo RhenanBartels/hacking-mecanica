@@ -198,7 +198,13 @@ class Base:
             plot_repo_yaxis  = [self.ecgf[self.peaks1[self.repo[-1] -1]],
                                 self.ecgf[self.peaks1[self.repo[-1]]] - 0.2 ,
                                 self.ecgf[self.peaks1[self.repo[-1] + 1]]]
-            self.ax1.plot(plot_repo_xaxis, plot_repo_yaxis, 'r.-')
+        elif self.repo[-1] == 0:
+            plot_repo_xaxis = [self.t_ecg[self.peaks1[0]],
+                               self.t_ecg[self.peaks1[1]]]
+            plot_repo_yaxis = [self.ecgf[self.peaks1[0]],
+                               self.ecgf[self.peaks1[1]]]
+
+        self.ax1.plot(plot_repo_xaxis, plot_repo_yaxis, 'r.-')
 
 
     def __init__(self):

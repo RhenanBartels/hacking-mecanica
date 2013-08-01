@@ -9,7 +9,7 @@ import Tkinter
 import scipy.signal
 import matplotlib.pyplot as plt
 import matplotlib.lines as ml
-plt.switch_backend('qt4Agg')
+#plt.switch_backend('qt4Agg')
 plt.ion()
 
 def impdaspy(filename):
@@ -108,8 +108,10 @@ def detrri(ecg):
     base.plotter()
     t = base.t
     rri = base.rri
+    repo = base.repo
     peaks = base.peaks
-    return t, rri, peaks
+    ecgf = base.ecgf
+    return t, rri, repo, peaks, ecgf
 
 class Base:
     def getval(self):
@@ -152,6 +154,7 @@ class Base:
         self.ax2.plot(self.t, self.rri, 'k.-')
         self.ax2.set_ylabel("RRi (ms)")
         self.ax2.set_xlabel("Time (s)")
+        self.peaks1 = self.peaks
         self.peaks = np.array(self.peaks) / self.fs
         #Event handling
         self.fig.canvas.mpl_connect("button_press_event", self.onclick)
@@ -174,6 +177,7 @@ class Base:
             plt.plot(self.t, self.rri, 'k.-')
             self.ax2.set_xlabel('Time (s)')
             self.ax2.set_ylabel('RRi (ms)')
+            self.drawline()
         elif event.button == 3:
             self.ecg_repo.append(self.ecg_pos)
             #Refresh array of peaks to add a new one.
@@ -187,7 +191,15 @@ class Base:
             plt.plot(self.t, self.rri, 'k.-')
 
     def drawline(self):
-        pass
+        if self.repo[-1] > 0 and self.repo[-1] < len(self.peaks):
+            plot_repo_xaxis = [self.t_ecg[self.peaks1[self.repo[-1] -1]],
+                               self.t_ecg[self.peaks1[self.repo[-1]]],
+                               self.t_ecg[self.peaks1[self.repo[-1] + 1]]]
+            plot_repo_yaxis  = [self.ecgf[self.peaks1[self.repo[-1] -1]],
+                                self.ecgf[self.peaks1[self.repo[-1]]] - 0.2 ,
+                                self.ecgf[self.peaks1[self.repo[-1] + 1]]]
+            self.ax1.plot(plot_repo_xaxis, plot_repo_yaxis, 'r.-')
+
 
     def __init__(self):
         self.master = Tkinter.Tk()

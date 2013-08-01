@@ -109,7 +109,7 @@ def detrri(ecg):
     t = base.t
     rri = base.rri
     repo = base.repo
-    peaks = base.peaks
+    peaks = base.peaks1
     ecgf = base.ecgf
     return t, rri, repo, peaks, ecgf
 
@@ -171,7 +171,7 @@ class Base:
             self.repo.append(self.xpos)  #Control de peaks already clicked
             #Create the rri series withou the peaks manually excluded
             self.rri = np.diff(np.delete(self.peaks, self.repo))
-            self.t = np.cumsum(self.rri) / self.fs
+            self.t = np.cumsum(self.rri)
             self.t = self.t - min(self.t)
             self.ax2.cla()
             plt.plot(self.t, self.rri, 'k.-')
@@ -187,8 +187,12 @@ class Base:
             self.rri = np.diff(self.peaks_ecg) / self.fs
             self.t = np.cumsum(self.rri)
             self.t = self.t - min(self.t)
+            #Need to refresh self.peaks after manually add a peak.
+            #removed peaks are appearing again because self.peaks are not
+            #refresh. Maybe remove the new peak from self.repo
             self.ax2.cla()
             plt.plot(self.t, self.rri, 'k.-')
+            self.eraseline()
 
     def drawline(self):
         if self.repo[-1] > 0 and self.repo[-1] < len(self.peaks):
@@ -196,7 +200,13 @@ class Base:
                                self.t_ecg[self.peaks1[self.repo[-1]]],
                                self.t_ecg[self.peaks1[self.repo[-1] + 1]]]
             plot_repo_yaxis  = [self.ecgf[self.peaks1[self.repo[-1] -1]],
-                                self.ecgf[self.peaks1[self.repo[-1]]] - 0.2 ,
+                                self.ecgf[self.peaks1[self.repo[-1]]] -0.2,
+                                self.ecgf[self.peaks1[self.repo[-1] + 1]]]
+            plot_repo_xaxis1 = [self.t_ecg[self.peaks1[self.repo[-1] -1]],
+                               self.t_ecg[self.peaks1[self.repo[-1]]],
+                               self.t_ecg[self.peaks1[self.repo[-1] + 1]]]
+            plot_repo_yaxis1  = [self.ecgf[self.peaks1[self.repo[-1] -1]],
+                                self.ecgf[self.peaks1[self.repo[-1]]] ,
                                 self.ecgf[self.peaks1[self.repo[-1] + 1]]]
         elif self.repo[-1] == 0:
             plot_repo_xaxis = [self.t_ecg[self.peaks1[0]],
@@ -205,7 +215,27 @@ class Base:
                                self.ecgf[self.peaks1[1]]]
 
         self.ax1.plot(plot_repo_xaxis, plot_repo_yaxis, 'r.-')
+        self.ax1.plot(plot_repo_xaxis1, plot_repo_yaxis1, 'w', linewidth=2)
+        self.ax1.plot(self.t_ecg[self.peaks1[self.repo[-1]]],
+                      self.ecgf[self.peaks1[self.repo[-1]]], 'w.',
+                      markersize=5)
 
+    def eraseline(self):
+        if self.repo[-1] > 0 and self.repo[-1] < len(self.peaks):
+            plot_repo_xaxis = [self.t_ecg[self.peaks1[self.repo[-1] -1]],
+                               self.t_ecg[self.peaks1[self.repo[-1]]],
+                               self.t_ecg[self.peaks1[self.repo[-1] + 1]]]
+            plot_repo_yaxis  = [self.ecgf[self.peaks1[self.repo[-1] -1]],
+                                self.ecgf[self.peaks1[self.repo[-1]]] -0.2,
+                                self.ecgf[self.peaks1[self.repo[-1] + 1]]]
+            plot_repo_xaxis1 = [self.t_ecg[self.peaks1[self.repo[-1] -1]],
+                               self.t_ecg[self.peaks1[self.repo[-1]]],
+                               self.t_ecg[self.peaks1[self.repo[-1] + 1]]]
+            plot_repo_yaxis1  = [self.ecgf[self.peaks1[self.repo[-1] -1]],
+                                self.ecgf[self.peaks1[self.repo[-1]]] ,
+                                self.ecgf[self.peaks1[self.repo[-1] + 1]]]
+        self.ax1.plot(plot_repo_xaxis, plot_repo_yaxis, 'w.-', linewidth=2)
+        self.ax1.plot(plot_repo_xaxis1, plot_repo_yaxis1, 'g')
 
     def __init__(self):
         self.master = Tkinter.Tk()
@@ -258,3 +288,4 @@ class Base:
 
         self.master.mainloop()
 #TODO: Include Everything in once big class
+#TODO: change self.repo[-1] by self.xpos

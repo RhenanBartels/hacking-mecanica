@@ -154,7 +154,7 @@ class Base:
         self.ax2.plot(self.t, self.rri, 'k.-')
         self.ax2.set_ylabel("RRi (ms)")
         self.ax2.set_xlabel("Time (s)")
-        self.peaks1 = self.peaks
+        self.peaks1 = np.array(self.peaks) / self.fs
         self.peaks = np.array(self.peaks) / self.fs
         #Event handling
         self.fig.canvas.mpl_connect("button_press_event", self.onclick)
@@ -170,72 +170,43 @@ class Base:
         if event.button == 1:
             self.repo.append(self.xpos)  #Control de peaks already clicked
             #Create the rri series withou the peaks manually excluded
-            self.rri = np.diff(np.delete(self.peaks, self.repo))
+            self.rri = np.diff(np.delete(self.peaks_ecg, self.repo))
             self.t = np.cumsum(self.rri)
             self.t = self.t - min(self.t)
             self.ax2.cla()
             plt.plot(self.t, self.rri, 'k.-')
             self.ax2.set_xlabel('Time (s)')
             self.ax2.set_ylabel('RRi (ms)')
-            self.drawline()
+            #self.drawline()
         elif event.button == 3:
             self.ecg_repo.append(self.ecg_pos)
             #Refresh array of peaks to add a new one.
-            self.peaks_ecg = list(np.delete(self.peaks, self.repo) * self.fs)
-            self.peaks_ecg.append(self.ecg_pos)
-            self.peaks_ecg.sort()
+            self.peaks_ecg_temp = np.delete(self.peaks_ecg, self.repo)
+            self.peaks_ecg = np.insert(self.peaks_ecg_temp, len(self.peaks_ecg_temp), self.ecg_pos)
+            self.peaks_ecg = np.sort(self.peaks_ecg)
             self.rri = np.diff(self.peaks_ecg) / self.fs
+            print self.peaks_ecg, len(self.peaks_ecg), self.repo
             self.t = np.cumsum(self.rri)
             self.t = self.t - min(self.t)
             #Need to refresh self.peaks after manually add a peak.
             #removed peaks are appearing again because self.peaks are not
             #refresh. Maybe remove the new peak from self.repo
+
             self.ax2.cla()
             plt.plot(self.t, self.rri, 'k.-')
-            self.eraseline()
+            #self.eraseline()
 
-    def drawline(self):
+    def drawpoint(self):
         if self.repo[-1] > 0 and self.repo[-1] < len(self.peaks):
-            plot_repo_xaxis = [self.t_ecg[self.peaks1[self.repo[-1] -1]],
-                               self.t_ecg[self.peaks1[self.repo[-1]]],
-                               self.t_ecg[self.peaks1[self.repo[-1] + 1]]]
-            plot_repo_yaxis  = [self.ecgf[self.peaks1[self.repo[-1] -1]],
-                                self.ecgf[self.peaks1[self.repo[-1]]] -0.2,
-                                self.ecgf[self.peaks1[self.repo[-1] + 1]]]
-            plot_repo_xaxis1 = [self.t_ecg[self.peaks1[self.repo[-1] -1]],
-                               self.t_ecg[self.peaks1[self.repo[-1]]],
-                               self.t_ecg[self.peaks1[self.repo[-1] + 1]]]
-            plot_repo_yaxis1  = [self.ecgf[self.peaks1[self.repo[-1] -1]],
-                                self.ecgf[self.peaks1[self.repo[-1]]] ,
-                                self.ecgf[self.peaks1[self.repo[-1] + 1]]]
-        elif self.repo[-1] == 0:
-            plot_repo_xaxis = [self.t_ecg[self.peaks1[0]],
-                               self.t_ecg[self.peaks1[1]]]
-            plot_repo_yaxis = [self.ecgf[self.peaks1[0]],
-                               self.ecgf[self.peaks1[1]]]
+            #self.ax1.plot(self.t_ecg, self.ecgf)
+            #self.ax1.plot(self.t_ecg[self.peaks], self.ecgf[self.peaks], 'g.-')a
+            pass
 
-        self.ax1.plot(plot_repo_xaxis, plot_repo_yaxis, 'r.-')
-        self.ax1.plot(plot_repo_xaxis1, plot_repo_yaxis1, 'w', linewidth=2)
-        self.ax1.plot(self.t_ecg[self.peaks1[self.repo[-1]]],
-                      self.ecgf[self.peaks1[self.repo[-1]]], 'w.',
-                      markersize=5)
 
-    def eraseline(self):
+    def erasepoint(self):
         if self.repo[-1] > 0 and self.repo[-1] < len(self.peaks):
-            plot_repo_xaxis = [self.t_ecg[self.peaks1[self.repo[-1] -1]],
-                               self.t_ecg[self.peaks1[self.repo[-1]]],
-                               self.t_ecg[self.peaks1[self.repo[-1] + 1]]]
-            plot_repo_yaxis  = [self.ecgf[self.peaks1[self.repo[-1] -1]],
-                                self.ecgf[self.peaks1[self.repo[-1]]] -0.2,
-                                self.ecgf[self.peaks1[self.repo[-1] + 1]]]
-            plot_repo_xaxis1 = [self.t_ecg[self.peaks1[self.repo[-1] -1]],
-                               self.t_ecg[self.peaks1[self.repo[-1]]],
-                               self.t_ecg[self.peaks1[self.repo[-1] + 1]]]
-            plot_repo_yaxis1  = [self.ecgf[self.peaks1[self.repo[-1] -1]],
-                                self.ecgf[self.peaks1[self.repo[-1]]] ,
-                                self.ecgf[self.peaks1[self.repo[-1] + 1]]]
-        self.ax1.plot(plot_repo_xaxis, plot_repo_yaxis, 'w.-', linewidth=2)
-        self.ax1.plot(plot_repo_xaxis1, plot_repo_yaxis1, 'g')
+            pass
+
 
     def __init__(self):
         self.master = Tkinter.Tk()

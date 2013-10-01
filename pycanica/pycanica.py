@@ -166,9 +166,9 @@ class Base:
         if event.button == 1 and event.key == 'control':
             #Create the rri series withou the peaks manually excluded
             self.peaks = np.delete(self.peaks, self.xpos)
-            self.rri = np.diff(self.peaks)
+            self.rri = np.diff(self.peaks) / self.fs
             #self.rri = np.diff(np.delete(self.peaks_ecg, self.repo))
-            self.t = np.cumsum(self.rri) / 1000.0
+            self.t = np.cumsum(self.rri)
             self.t = self.t - min(self.t)
             xlim_temp = self.ax1.get_xlim()
             self.ax1.cla()
@@ -185,7 +185,7 @@ class Base:
             self.peaks = np.insert(self.peaks, len(self.peaks), self.ecg_pos)
             self.peaks = np.sort(self.peaks)
             self.rri = np.diff(self.peaks) / self.fs
-            self.t = np.cumsum(self.rri) / 1000.0
+            self.t = np.cumsum(self.rri)
             self.t = self.t - min(self.t)
             xlim_temp = self.ax1.get_xlim()
             self.ax1.cla()

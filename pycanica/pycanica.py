@@ -108,10 +108,8 @@ def detrri(ecg):
     base.plotter()
     t = base.t
     rri = base.rri
-    repo = base.repo
-    peaks = base.peaks1
     ecgf = base.ecgf
-    return t, rri, repo, peaks, ecgf
+    return t, rri
 
 class Base:
     def getval(self):
@@ -120,11 +118,11 @@ class Base:
         self.lc = float(self.entry3.get().strip())
         self.uc = float(self.entry4.get().strip())
         self.master.destroy()
-        #return [thr, fs, lc, uc]
 
 
     def kill_Tk(self):
         self.master.destroy()
+
 
     def rrdet(self, ecg):
         B, A = scipy.signal.butter(4,
@@ -139,7 +137,7 @@ class Base:
         self.peaks = peaks
         self.rri = np.diff(peaks) / self.fs
         self.t = np.cumsum(self.rri)
-        self.peaks_ecg = peaks # Maintain list to append later.
+        self.peaks_ecg = np.array(peaks) # Maintain list to append later.
         #self.t = self.t - np.min(self.t)
 
     def plotter(self):
@@ -149,45 +147,54 @@ class Base:
         self.ax2 = self.fig.add_subplot(2, 1, 2)
         self.ax1.plot(self.t_ecg, self.ecgf)
         #Plot the peaks upon each qrs complex
-        self.ax1.plot(self.t_ecg[self.peaks], self.ecgf[self.peaks], 'g.-')
+        self.ax1.plot(self.t_ecg[self.peaks], self.ecgf[self.peaks], 'g.')
         self.ax1.set_ylabel("ECG (mV)")
         self.ax2.plot(self.t, self.rri, 'k.-')
         self.ax2.set_ylabel("RRi (ms)")
         self.ax2.set_xlabel("Time (s)")
-        self.peaks1 = np.array(self.peaks) / self.fs
-        self.peaks = np.array(self.peaks) / self.fs
+
         #Event handling
         self.fig.canvas.mpl_connect("button_press_event", self.onclick)
-        while not self.fig.waitforbuttonpress():
-            continue
-        plt.close(self.fig)
+        self.fig.canvas.mpl_connect("key_press_event", self.close)
+        self.fig.canvas.start_event_loop(timeout=-1)
 
     def onclick(self, event):
         #Find the neares point clicked
-        self.xpos = np.argmin(abs(event.xdata - self.peaks))
+        self.xpos = np.argmin(abs(event.xdata * 1000.0 - self.peaks))
         self.ecg_pos = np.argmin(abs(event.xdata - self.t_ecg))
         #If left button clicked
-        if event.button == 1:
-            self.repo.append(self.xpos)  #Control de peaks already clicked
+        if event.button == 1 and event.key == 'control':
             #Create the rri series withou the peaks manually excluded
-            self.rri = np.diff(np.delete(self.peaks_ecg, self.repo))
-            self.t = np.cumsum(self.rri)
+            self.peaks = np.delete(self.peaks, self.xpos)
+            self.rri = np.diff(self.peaks)
+            #self.rri = np.diff(np.delete(self.peaks_ecg, self.repo))
+            self.t = np.cumsum(self.rri) / 1000.0
             self.t = self.t - min(self.t)
+            xlim_temp = self.ax1.get_xlim()
+            self.ax1.cla()
+            self.ax1.plot(self.t_ecg, self.ecgf)
+            self.ax1.plot(self.t_ecg[self.peaks], self.ecgf[self.peaks], 'g.')
+            self.ax1.set_xlim(xlim_temp)
             self.ax2.cla()
             plt.plot(self.t, self.rri, 'k.-')
             self.ax2.set_xlabel('Time (s)')
             self.ax2.set_ylabel('RRi (ms)')
             #self.drawline()
-        elif event.button == 3:
-            self.ecg_repo.append(self.ecg_pos)
+        elif event.button == 3 and event.key == 'control':
             #Refresh array of peaks to add a new one.
-            self.peaks_ecg_temp = np.delete(self.peaks_ecg, self.repo)
-            self.peaks_ecg = np.insert(self.peaks_ecg_temp, len(self.peaks_ecg_temp), self.ecg_pos)
-            self.peaks_ecg = np.sort(self.peaks_ecg)
-            self.rri = np.diff(self.peaks_ecg) / self.fs
-            print self.peaks_ecg, len(self.peaks_ecg), self.repo
-            self.t = np.cumsum(self.rri)
+            self.peaks = np.insert(self.peaks, len(self.peaks), self.ecg_pos)
+            self.peaks = np.sort(self.peaks)
+            self.rri = np.diff(self.peaks) / self.fs
+            self.t = np.cumsum(self.rri) / 1000.0
             self.t = self.t - min(self.t)
+            xlim_temp = self.ax1.get_xlim()
+            self.ax1.cla()
+            self.ax1.plot(self.t_ecg, self.ecgf)
+            self.ax1.plot(self.t_ecg[self.peaks], self.ecgf[self.peaks], 'g.')
+            self.ax1.set_xlim(xlim_temp)
+            self.ax2.set_xlabel('Time (s)')
+            self.ax2.set_ylabel('RRi (ms)')
+
             #Need to refresh self.peaks after manually add a peak.
             #removed peaks are appearing again because self.peaks are not
             #refresh. Maybe remove the new peak from self.repo
@@ -206,6 +213,10 @@ class Base:
     def erasepoint(self):
         if self.repo[-1] > 0 and self.repo[-1] < len(self.peaks):
             pass
+
+    def close(self, event):
+        if event.key == 'shift':
+            self.fig.canvas.stop_event_loop()
 
 
     def __init__(self):
@@ -258,5 +269,27 @@ class Base:
         #btcan.pack(side="left")
 
         self.master.mainloop()
+
+def leastvariance(time, rri, seg=300.0):
+    time = time - min(time)
+    v = []
+    rriv = []
+    ind = np.where(time >= seg)[0][0]
+    time_temp = time[0:ind + 1]
+    rri_temp = rri[0:ind + 1]
+    while time_temp[-1] > seg:
+        v.append(np.var(rri_temp))
+        rriv.append(rri_temp)
+        rri = np.delete(rri, 0)
+        time = np.cumsum(rri) / 1000.0
+        time = time - min(time)
+        try:
+            ind = np.where(time >= seg)[0][0]
+        except IndexError:
+            break
+        time_temp = time[0:ind + 1]
+        rri_temp = rri[0:ind + 1]
+    return rriv[np.where(v == min(v))[0]]
+
 #TODO: Include Everything in once big class
-#TODO: change self.repo[-1] by self.xpos
+

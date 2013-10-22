@@ -328,7 +328,7 @@ def innoresult(filename):
     variables_values = variables_values[:, 0:15]  #Get rid of the rest of the
                                                   #file
     #Dictionary with variable's names and values.
-    results = dict(zip(variables_names, variables_values[:].T))
+    results = dict(zip(variables_names, variables_values.T))
     fid.close()  #Close file.
     print "...Done!"
 

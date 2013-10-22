@@ -4,13 +4,12 @@
 """
 
 import numpy as np
-import sys
 import Tkinter
 import scipy.signal
 import matplotlib.pyplot as plt
-import matplotlib.lines as ml
-#plt.switch_backend('qt4Agg')
+plt.switch_backend('qt4Agg')
 plt.ion()
+
 
 def impdaspy(filename):
 
@@ -36,7 +35,7 @@ def impdaspy(filename):
     #handing error
 
     if not filename.endswith('bin'):
-        raise Except("File must be have binary extension -> filename.bin")
+        raise Exception("File must have binary extension -> filename.bin")
     try:
         fid = open(filename, 'rb')
     except IOError:
@@ -77,7 +76,7 @@ def impdaspy(filename):
                                                          count=1))
     hour = ' '.join([chr(str_it2) for str_it2 in hour])
     signal = np.fromfile(fid, dtype='>f')
-    signal =  signal.reshape(dim1, len(signal) / float(dim1), order='F')
+    signal = signal.reshape(dim1, len(signal) / float(dim1), order='F')
 
     #remove baseline
 
@@ -91,9 +90,10 @@ def impdaspy(filename):
 
     return all_sig, config
 
+
 def p2rri(xis, fs, thr=1):
-    xis[xis >= thr] = 1
     xis[xis < thr] = 0
+    xis[xis >= thr] = 1
     ct1 = xis[0:-1]
     ct2 = xis[1::]
     ctrl = ct2 - ct1
@@ -102,16 +102,15 @@ def p2rri(xis, fs, thr=1):
     t = np.cumsum(rri)
     return t, rri
 
+
 def detrri(ecg):
     base = Base()
     base.rrdet(ecg)
     base.plotter()
     t = base.t
     rri = base.rri
-    repo = base.repo
-    peaks = base.peaks1
-    ecgf = base.ecgf
-    return t, rri, repo, peaks, ecgf
+    return t, rri
+
 
 class Base:
     def getval(self):
@@ -120,8 +119,6 @@ class Base:
         self.lc = float(self.entry3.get().strip())
         self.uc = float(self.entry4.get().strip())
         self.master.destroy()
-        #return [thr, fs, lc, uc]
-
 
     def kill_Tk(self):
         self.master.destroy()
@@ -132,14 +129,14 @@ class Base:
                                     2 * self.uc / self.fs], btype="pass")
         ecgf = scipy.signal.filtfilt(B, A, ecg)
         ecgd = np.diff(ecgf)
-        peaks = [itr + 1 for itr in xrange(len(ecgf)) if  ecgf[itr] >= self.thr
-                 and (ecgd[itr] > 0 and ecgd[itr + 1] < 0 or ecgd[itr] ==0)]
+        peaks = [itr + 1 for itr in xrange(len(ecgf)) if ecgf[itr] >= self.thr
+                 and (ecgd[itr] > 0 and ecgd[itr + 1] < 0 or ecgd[itr] == 0)]
         self.ecgf = ecgf
         self.t_ecg = np.arange(0, len(ecg)) / self.fs
         self.peaks = peaks
         self.rri = np.diff(peaks) / self.fs
         self.t = np.cumsum(self.rri)
-        self.peaks_ecg = peaks # Maintain list to append later.
+        self.peaks_ecg = np.array(peaks)  # Maintain list to append later.
         #self.t = self.t - np.min(self.t)
 
     def plotter(self):
@@ -154,88 +151,71 @@ class Base:
         self.ax2.plot(self.t, self.rri, 'k.-')
         self.ax2.set_ylabel("RRi (ms)")
         self.ax2.set_xlabel("Time (s)")
-        self.peaks1 = self.peaks
-        self.peaks = np.array(self.peaks) / self.fs
+
         #Event handling
         self.fig.canvas.mpl_connect("button_press_event", self.onclick)
-        while not self.fig.waitforbuttonpress():
-            continue
-        plt.close(self.fig)
+        self.fig.canvas.mpl_connect("key_press_event", self.close)
+        self.fig.canvas.start_event_loop(timeout=-1)
 
     def onclick(self, event):
         #Find the neares point clicked
-        self.xpos = np.argmin(abs(event.xdata - self.peaks))
+        self.xpos = np.argmin(abs(event.xdata * 1000.0 - self.peaks))
         self.ecg_pos = np.argmin(abs(event.xdata - self.t_ecg))
         #If left button clicked
-        if event.button == 1:
-            self.repo.append(self.xpos)  #Control de peaks already clicked
+        if event.button == 1 and event.key == 'control':
             #Create the rri series withou the peaks manually excluded
-            self.rri = np.diff(np.delete(self.peaks, self.repo))
+            self.peaks = np.delete(self.peaks, self.xpos)
+            self.rri = np.diff(self.peaks) / self.fs
+            #self.rri = np.diff(np.delete(self.peaks_ecg, self.repo))
             self.t = np.cumsum(self.rri)
             self.t = self.t - min(self.t)
+            xlim_temp = self.ax1.get_xlim()
+            self.ax1.cla()
+            self.ax1.plot(self.t_ecg, self.ecgf)
+            self.ax1.plot(self.t_ecg[self.peaks], self.ecgf[self.peaks], 'g.-')
+            self.ax1.set_xlim(xlim_temp)
             self.ax2.cla()
             plt.plot(self.t, self.rri, 'k.-')
             self.ax2.set_xlabel('Time (s)')
             self.ax2.set_ylabel('RRi (ms)')
-            self.drawline()
-        elif event.button == 3:
-            self.ecg_repo.append(self.ecg_pos)
+            #self.drawline()
+        elif event.button == 3 and event.key == 'control':
             #Refresh array of peaks to add a new one.
-            self.peaks_ecg = list(np.delete(self.peaks, self.repo) * self.fs)
-            self.peaks_ecg.append(self.ecg_pos)
-            self.peaks_ecg.sort()
-            self.rri = np.diff(self.peaks_ecg) / self.fs
+            self.peaks = np.insert(self.peaks, len(self.peaks), self.ecg_pos)
+            self.peaks = np.sort(self.peaks)
+            self.rri = np.diff(self.peaks) / self.fs
             self.t = np.cumsum(self.rri)
             self.t = self.t - min(self.t)
+            xlim_temp = self.ax1.get_xlim()
+            self.ax1.cla()
+            self.ax1.plot(self.t_ecg, self.ecgf)
+            self.ax1.plot(self.t_ecg[self.peaks], self.ecgf[self.peaks], 'g.-')
+            self.ax1.set_xlim(xlim_temp)
+            self.ax2.set_xlabel('Time (s)')
+            self.ax2.set_ylabel('RRi (ms)')
+
             #Need to refresh self.peaks after manually add a peak.
             #removed peaks are appearing again because self.peaks are not
             #refresh. Maybe remove the new peak from self.repo
+
             self.ax2.cla()
             plt.plot(self.t, self.rri, 'k.-')
-            self.eraseline()
+            #self.eraseline()
 
-    def drawline(self):
+    def drawpoint(self):
         if self.repo[-1] > 0 and self.repo[-1] < len(self.peaks):
-            plot_repo_xaxis = [self.t_ecg[self.peaks1[self.repo[-1] -1]],
-                               self.t_ecg[self.peaks1[self.repo[-1]]],
-                               self.t_ecg[self.peaks1[self.repo[-1] + 1]]]
-            plot_repo_yaxis  = [self.ecgf[self.peaks1[self.repo[-1] -1]],
-                                self.ecgf[self.peaks1[self.repo[-1]]] -0.2,
-                                self.ecgf[self.peaks1[self.repo[-1] + 1]]]
-            plot_repo_xaxis1 = [self.t_ecg[self.peaks1[self.repo[-1] -1]],
-                               self.t_ecg[self.peaks1[self.repo[-1]]],
-                               self.t_ecg[self.peaks1[self.repo[-1] + 1]]]
-            plot_repo_yaxis1  = [self.ecgf[self.peaks1[self.repo[-1] -1]],
-                                self.ecgf[self.peaks1[self.repo[-1]]] ,
-                                self.ecgf[self.peaks1[self.repo[-1] + 1]]]
-        elif self.repo[-1] == 0:
-            plot_repo_xaxis = [self.t_ecg[self.peaks1[0]],
-                               self.t_ecg[self.peaks1[1]]]
-            plot_repo_yaxis = [self.ecgf[self.peaks1[0]],
-                               self.ecgf[self.peaks1[1]]]
+            #self.ax1.plot(self.t_ecg, self.ecgf)
+            #self.ax1.plot(self.t_ecg[self.peaks],
+                           #self.ecgf[self.peaks], 'g.-')
+            pass
 
-        self.ax1.plot(plot_repo_xaxis, plot_repo_yaxis, 'r.-')
-        self.ax1.plot(plot_repo_xaxis1, plot_repo_yaxis1, 'w', linewidth=2)
-        self.ax1.plot(self.t_ecg[self.peaks1[self.repo[-1]]],
-                      self.ecgf[self.peaks1[self.repo[-1]]], 'w.',
-                      markersize=5)
-
-    def eraseline(self):
+    def erasepoint(self):
         if self.repo[-1] > 0 and self.repo[-1] < len(self.peaks):
-            plot_repo_xaxis = [self.t_ecg[self.peaks1[self.repo[-1] -1]],
-                               self.t_ecg[self.peaks1[self.repo[-1]]],
-                               self.t_ecg[self.peaks1[self.repo[-1] + 1]]]
-            plot_repo_yaxis  = [self.ecgf[self.peaks1[self.repo[-1] -1]],
-                                self.ecgf[self.peaks1[self.repo[-1]]] -0.2,
-                                self.ecgf[self.peaks1[self.repo[-1] + 1]]]
-            plot_repo_xaxis1 = [self.t_ecg[self.peaks1[self.repo[-1] -1]],
-                               self.t_ecg[self.peaks1[self.repo[-1]]],
-                               self.t_ecg[self.peaks1[self.repo[-1] + 1]]]
-            plot_repo_yaxis1  = [self.ecgf[self.peaks1[self.repo[-1] -1]],
-                                self.ecgf[self.peaks1[self.repo[-1]]] ,
-                                self.ecgf[self.peaks1[self.repo[-1] + 1]]]
-        self.ax1.plot(plot_repo_xaxis, plot_repo_yaxis, 'w.-', linewidth=2)
-        self.ax1.plot(plot_repo_xaxis1, plot_repo_yaxis1, 'g')
+            pass
+
+    def close(self, event):
+        if event.key == 'shift':
+            self.fig.canvas.stop_event_loop()
 
     def __init__(self):
         self.master = Tkinter.Tk()
@@ -278,7 +258,8 @@ class Base:
         frame4.pack()
 
         btok = Tkinter.Button(self.master, text="OK", command=self.getval)
-        btcan = Tkinter.Button(self.master, text="Cancel", command=self.kill_Tk)
+        btcan = Tkinter.Button(self.master,
+                               text="Cancel", command=self.kill_Tk)
         btok.pack()
         btcan.pack()
         self.repo = []
@@ -287,5 +268,68 @@ class Base:
         #btcan.pack(side="left")
 
         self.master.mainloop()
-#TODO: Include Everything in once big class
-#TODO: change self.repo[-1] by self.xpos
+
+
+def leastvariance(time, rri, seg=300.0):
+    time = time - min(time)
+    v = []
+    rriv = []
+    ind = np.where(time >= seg)[0][0]
+    time_temp = time[0:ind + 1]
+    rri_temp = rri[0:ind + 1]
+    while time_temp[-1] > seg:
+        v.append(np.var(rri_temp))
+        rriv.append(rri_temp)
+        rri = np.delete(rri, 0)
+        time = np.cumsum(rri) / 1000.0
+        time = time - min(time)
+        try:
+            ind = np.where(time >= seg)[0][0]
+        except IndexError:
+            break
+        time_temp = time[0:ind + 1]
+        rri_temp = rri[0:ind + 1]
+    return rriv[np.where(v == min(v))[0]]
+
+
+def qfilter(rri, order=4):
+    N = len(rri)
+    for iter1 in xrange(N - 1):
+        if iter1 <= order:
+            if rri[iter1] / rri[iter1 + 1] <= 0.8 or rri[iter1] / rri[iter1 + 1]\
+                    >= 1.2:
+                        rri[iter1] = np.mean(rri[iter1:iter1 + order + 1])
+        else:
+            if rri[iter1] / rri[iter1 + 1] <= 0.8 or rri[iter1] / rri[iter1 + 1]\
+                    >= 1.2:
+                        rri[iter1] = np.mean(rri[iter1: iter1 - order - 1])
+    return rri
+
+
+def innoresult(filename):
+    try:
+        fid = open(filename, 'r')  #Open file
+    except IOError:
+        print "There's no %s in the current directory" % filename
+
+    print "\t\nOpenning file: %s ......\n" % filename
+
+    fid.seek(340)  #Go to line with variables names
+    variables_names = fid.readline().strip().split('\t')  #Remove spaces
+    fid.seek(960)  #Go to line with values
+    variables_values = fid.readlines()
+    variables_values.pop(-1)  #Remove last line with dashes
+    variables_values.pop(-1)  #Remove last line with dashes
+    #Remove spaces
+    variables_values = [itr.strip().split('\t') for itr in variables_values]
+    #Transform to a np.array to become easier to handle with the data
+    variables_values = np.array(variables_values)
+    variables_names = variables_names[0:15]  #Get rid of the rest of file
+    variables_values = variables_values[:, 0:15]  #Get rid of the rest of the
+                                                  #file
+    #Dictionary with variable's names and values.
+    results = dict(zip(variables_names, variables_values.T))
+    fid.close()  #Close file.
+    print "...Done!"
+
+    return results

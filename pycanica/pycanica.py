@@ -147,10 +147,12 @@ class Base:
         self.ax1.plot(self.t_ecg, self.ecgf)
         #Plot the peaks upon each qrs complex
         self.ax1.plot(self.t_ecg[self.peaks], self.ecgf[self.peaks], 'g.-')
+        plt.axis("tight")
         self.ax1.set_ylabel("ECG (mV)")
         self.ax2.plot(self.t, self.rri, 'k.-')
         self.ax2.set_ylabel("RRi (ms)")
         self.ax2.set_xlabel("Time (s)")
+        plt.axis("tight")
 
         #Event handling
         self.fig.canvas.mpl_connect("button_press_event", self.onclick)
@@ -173,11 +175,15 @@ class Base:
             self.ax1.cla()
             self.ax1.plot(self.t_ecg, self.ecgf)
             self.ax1.plot(self.t_ecg[self.peaks], self.ecgf[self.peaks], 'g.-')
+            plt.axis("tight")
             self.ax1.set_xlim(xlim_temp)
+            self.ax1.set_xlabel("Time (s)")
+            self.ax1.set_ylabel("ECG (mV)")
             self.ax2.cla()
             plt.plot(self.t, self.rri, 'k.-')
-            self.ax2.set_xlabel('Time (s)')
-            self.ax2.set_ylabel('RRi (ms)')
+            self.ax2.set_xlabel("Time (s)")
+            self.ax2.set_ylabel("RRi (s)")
+            plt.axis("tight")
             #self.drawline()
         elif event.button == 3 and event.key == 'control':
             #Refresh array of peaks to add a new one.
@@ -190,9 +196,12 @@ class Base:
             self.ax1.cla()
             self.ax1.plot(self.t_ecg, self.ecgf)
             self.ax1.plot(self.t_ecg[self.peaks], self.ecgf[self.peaks], 'g.-')
+            plt.axis("tight")
+            self.ax1.set_xlabel("Time (s)")
+            self.ax1.set_ylabel("ECG (mV)")
             self.ax1.set_xlim(xlim_temp)
-            self.ax2.set_xlabel('Time (s)')
-            self.ax2.set_ylabel('RRi (ms)')
+            self.ax2.set_xlabel("Time (s)")
+            self.ax2.set_ylabel("RRi (s)")
 
             #Need to refresh self.peaks after manually add a peak.
             #removed peaks are appearing again because self.peaks are not
@@ -200,6 +209,7 @@ class Base:
 
             self.ax2.cla()
             plt.plot(self.t, self.rri, 'k.-')
+            plt.axis("tight")
             #self.eraseline()
 
     def drawpoint(self):
@@ -296,13 +306,16 @@ def qfilter(rri, order=4):
     N = len(rri)
     for iter1 in xrange(N - 1):
         if iter1 <= order:
-            if rri[iter1] / rri[iter1 + 1] <= 0.8 or rri[iter1] / rri[iter1 + 1]\
-                    >= 1.2:
+
+            if (rri[iter1] / rri[iter1 + 1] <= 0.8) or \
+               (rri[iter1] / rri[iter1 + 1] >= 1.2):
+
                         rri[iter1] = np.mean(rri[iter1:iter1 + order + 1])
         else:
-            if rri[iter1] / rri[iter1 + 1] <= 0.8 or rri[iter1] / rri[iter1 + 1]\
-                    >= 1.2:
-                        rri[iter1] = np.mean(rri[iter1: iter1 - order - 1])
+            if (rri[iter1] / rri[iter1 + 1] <= 0.8) or \
+               (rri[iter1] / rri[iter1 + 1] >= 1.2):
+                print iter1
+                rri[iter1] = np.mean(rri[iter1 - order - 1: iter1])
     return rri
 
 
@@ -313,10 +326,10 @@ def innoresult(filename):
         print "There's no %s in the current directory" % filename
 
     print "\t\nOpenning file: %s ......\n" % filename
-
-    fid.seek(340)  #Go to line with variables names
+    for itr in xrange(13):
+        garb = fid.readline()
     variables_names = fid.readline().strip().split('\t')  #Remove spaces
-    fid.seek(960)  #Go to line with values
+    garb = fid.readline()
     variables_values = fid.readlines()
     variables_values.pop(-1)  #Remove last line with dashes
     variables_values.pop(-1)  #Remove last line with dashes
